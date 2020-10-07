@@ -65,7 +65,7 @@ namespace CognitiveSearch.UI.Controllers
 
         }
 
-        public IActionResult Search([FromQuery]string q, [FromQuery]string facets = "", [FromQuery]int page = 1)
+        public IActionResult Search([FromQuery]string q, [FromQuery]string facets = "", [FromQuery]int page = 1, [FromQuery]int pathNodeId = 1)
         {
             // Split the facets.
             //  Expected format: &facets=key1_val1,key1_val2,key2_val1
@@ -84,7 +84,8 @@ namespace CognitiveSearch.UI.Controllers
             {
                 q = q,
                 searchFacets = searchFacets,
-                currentPage = page
+                currentPage = page,
+                pathNodeId = pathNodeId
             });
 
             return View(viewModel);
@@ -96,6 +97,7 @@ namespace CognitiveSearch.UI.Controllers
             public SearchFacet[] searchFacets { get; set; }
             public int currentPage { get; set; }
             public string polygonString { get; set; }
+            public int pathNodeId { get; set; }
         }
 
         [HttpPost]
@@ -115,13 +117,14 @@ namespace CognitiveSearch.UI.Controllers
 
             var viewModel = new SearchResultViewModel
             {
-                documentResult = _docSearch.GetDocuments(searchParams.q, searchParams.searchFacets, searchParams.currentPage, searchParams.polygonString),
+                documentResult = _docSearch.GetDocuments(searchParams.q, searchParams.searchFacets, searchParams.currentPage, searchParams.polygonString, searchParams.pathNodeId),
                 query = searchParams.q,
                 selectedFacets = searchParams.searchFacets,
                 currentPage = searchParams.currentPage,
                 searchId = searchidId ?? null,
                 applicationInstrumentationKey = _configuration.GetSection("InstrumentationKey")?.Value,
-                facetableFields = _docSearch.Model.Facets.Select(k => k.Name).ToArray()
+                facetableFields = _docSearch.Model.Facets.Select(k => k.Name).ToArray(),
+                pathNodeId = searchParams.pathNodeId
             };
             return viewModel;
         }

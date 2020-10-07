@@ -9,8 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.WindowsAzure.Storage.Blob;
-using Microsoft.WindowsAzure.Storage.Auth;
+using Microsoft.Azure.Storage.Blob;
+using Microsoft.Azure.Storage.Auth;
 
 namespace CognitiveSearch.UI
 {
@@ -75,11 +75,11 @@ namespace CognitiveSearch.UI
             }
         }
 
-        public DocumentSearchResult<Document> Search(string searchText, SearchFacet[] searchFacets = null, string[] selectFilter = null, int currentPage = 1, string polygonString = null)
+        public DocumentSearchResult<Document> Search(string searchText, SearchFacet[] searchFacets = null, string[] selectFilter = null, int currentPage = 1, string polygonString = null, int pathNodeId = 1)
         {
             try
             {
-                SearchParameters sp = GenerateSearchParameters(searchFacets, selectFilter, currentPage, polygonString);
+                SearchParameters sp = GenerateSearchParameters(searchFacets, selectFilter, currentPage, polygonString, pathNodeId);
 
                 if (!string.IsNullOrEmpty(telemetryClient.InstrumentationKey))
                 {
@@ -96,7 +96,7 @@ namespace CognitiveSearch.UI
             return null;
         }
 
-        public SearchParameters GenerateSearchParameters(SearchFacet[] searchFacets = null, string[] selectFilter = null, int currentPage = 1, string polygonString = null)
+        public SearchParameters GenerateSearchParameters(SearchFacet[] searchFacets = null, string[] selectFilter = null, int currentPage = 1, string polygonString = null, int pathNodeId = 1)
         {
             // For more information on search parameters visit: 
             // https://docs.microsoft.com/en-us/dotnet/api/microsoft.azure.search.models.searchparameters?view=azure-dotnet
@@ -163,6 +163,24 @@ namespace CognitiveSearch.UI
                 else
                 { 
                     sp.Filter = geoQuery; 
+                }
+            }
+
+            // Add Filter based on node Id
+            if (pathNodeId != 1)
+            {
+                // Build the path to search on
+                // TODO - get folder file from blob
+                string pathFilter = "search.ismatch('https://npmsknowledgeminingaccel.blob.core.windows.net/clinical-trials-small/company;b/2020*')";
+
+                // set the filter search property
+                if (sp.Filter != null && sp.Filter.Length > 0)
+                {
+                    sp.Filter += " and " + pathFilter;
+                }
+                else
+                {
+                    sp.Filter = pathFilter;
                 }
             }
 
@@ -276,7 +294,7 @@ namespace CognitiveSearch.UI
             return null;
         }
 
-        public DocumentResult GetDocuments(string q, SearchFacet[] searchFacets, int currentPage, string polygonString = null)
+        public DocumentResult GetDocuments(string q, SearchFacet[] searchFacets, int currentPage, string polygonString = null, int pathNodeId = 1)
         {
             var tokens = GetContainerSasUris();
 
@@ -287,7 +305,7 @@ namespace CognitiveSearch.UI
                 q = q.Replace("?", "");
             }
 
-            var response = Search(q, searchFacets, selectFilter, currentPage, polygonString);
+            var response = Search(q, searchFacets, selectFilter, currentPage, polygonString, pathNodeId);
             var searchId = GetSearchId().ToString();
             var facetResults = new List<object>();
             var tagsResults = new List<object>();

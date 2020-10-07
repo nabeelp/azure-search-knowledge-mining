@@ -15,6 +15,7 @@ var scoringProfile = "";
 var resultsMap = null;
 var mapDataSource = null;
 var showMap = true;
+var pathNodeId = 1;
 
 // variables related to polygon selection on map
 var drawingTools;
@@ -69,7 +70,8 @@ function UpdateResultsView() {
             q: q !== undefined ? q : "*",
             searchFacets: selectedFacets,
             currentPage: currentPage,
-            polygonString: polygonString
+            polygonString: polygonString,
+            pathNodeId: pathNodeId
         },
         function (viewModel) {
             $('#loading-indicator').css("display", "none");
@@ -92,6 +94,9 @@ function Update(viewModel) {
     token = data.token;
 
     searchId = data.searchId;
+
+    //Folders
+    UpdateFolders();
 
     //Facets
     UpdateFacets();
@@ -120,6 +125,33 @@ function Update(viewModel) {
     FabricInit();
 }
 
+// Folders
+function UpdateFolders() {
+    $(function () {
+        var $tree = $('#folder-nav');
+
+        $tree.tree({
+            autoOpen: 0
+        });
+
+        $tree.on(
+            'tree.select',
+            function (event) {
+                if (event.node) {
+                    // node was selected
+                    pathNodeId = event.node.id;
+                }
+                else {
+                    // event.node is null
+                    // a node was deselected
+                    // e.previous_node contains the deselected node
+                    pathNodeId = 1
+                }
+            }
+        );
+    });
+}
+
 function UpdateLocationBar() {
     // Try to update the location to match the search.
     if (history.pushState) {
@@ -143,6 +175,7 @@ function UpdateLocationBar() {
 
         // Add other parameters
         searchParams.set("q", q);
+        searchParams.set("pathNodeId", pathNodeId);
 
         if (currentPage > 1)
             searchParams.set("page", currentPage);

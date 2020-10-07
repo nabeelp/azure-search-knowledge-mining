@@ -15,5 +15,7 @@
         public string applicationInstrumentationKey { get; set; }
 
         public string[] facetableFields { get; set; }
+
+        public int pathNodeId { get; set; }
     }
 }

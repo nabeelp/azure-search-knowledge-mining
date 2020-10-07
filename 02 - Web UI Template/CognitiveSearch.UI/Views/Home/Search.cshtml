@@ -15,6 +15,7 @@
     applicationInstrumentationKey = @Html.Raw(Json.Serialize(Model.applicationInstrumentationKey));
 </script>
 <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.css" />
+<link rel="stylesheet" href="~/css/jqtree.css" />
 
 <!--Details Modal-->
 <div class="modal" id="details-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
@@ -71,6 +72,7 @@
         <div>
             <div id="filterReset"></div>
             <div class="widget-content">
+                <div id="folder-nav" data-url="/containerTree" class="facet-nav"></div>
                 <div id="facet-nav" class="facet-nav"></div>
             </div>
         </div>
