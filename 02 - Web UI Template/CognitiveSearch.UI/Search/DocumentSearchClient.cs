@@ -11,6 +11,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Azure.Storage.Auth;
+using CognitiveSearch.UI.Controllers;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 
 namespace CognitiveSearch.UI
 {
@@ -170,21 +173,59 @@ namespace CognitiveSearch.UI
             if (pathNodeId != 1)
             {
                 // Build the path to search on
-                // TODO - get folder file from blob
-                string pathFilter = "search.ismatch('https://npmsknowledgeminingaccel.blob.core.windows.net/clinical-trials-small/company;b/2020*')";
+                var storageController = new StorageController(_configuration);
+                var containerTree = JArray.Parse((storageController.GetContainerTree().Result as ContentResult).Content);
 
-                // set the filter search property
-                if (sp.Filter != null && sp.Filter.Length > 0)
+                // JSON Path commands below not working, so doing a manual search
+                //var jsonPath = $"$..[?(@.id=='{pathNodeId}')].url";
+                //var nodeUrl = containerTree[0].SelectToken(jsonPath);
+                var nodeUrl = RetrieveUrlForFolderId(containerTree, pathNodeId);
+
+                // add the url to the path filter, if applicable
+                if (nodeUrl != null)
                 {
-                    sp.Filter += " and " + pathFilter;
-                }
-                else
-                {
-                    sp.Filter = pathFilter;
+                    string pathFilter = $"search.ismatch('{nodeUrl.ToString().ToLower().Replace(' ',';').Replace("[","").Replace("]","")}*')";
+
+                    // set the filter search property
+                    if (sp.Filter != null && sp.Filter.Length > 0)
+                    {
+                        sp.Filter += " and " + pathFilter;
+                    }
+                    else
+                    {
+                        sp.Filter = pathFilter;
+                    }
                 }
             }
 
             return sp;
+        }
+
+        private string RetrieveUrlForFolderId(JArray containerTree, int pathNodeId)
+        {
+            string nodeUrl = null;
+
+            foreach (var node in containerTree)
+            {
+                // check if the current id is the one we want
+                if (node["id"].Value<string>() == pathNodeId.ToString())
+                {
+                    nodeUrl = node["url"].Value<string>();
+                    return nodeUrl;
+                }    
+
+                // if there is are "children", then call the function again for the children array
+                if (node["children"] != null)
+                {
+                    nodeUrl = RetrieveUrlForFolderId(node["children"] as JArray, pathNodeId);
+                    if (nodeUrl != null)
+                    {
+                        return nodeUrl;
+                    }    
+                }
+            }
+
+            return nodeUrl;
         }
 
         public DocumentSuggestResult<Document> Suggest(string searchText, bool fuzzy)

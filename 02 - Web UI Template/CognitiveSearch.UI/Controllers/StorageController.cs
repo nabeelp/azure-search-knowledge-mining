@@ -15,6 +15,7 @@ using Azure.Storage.Blobs.Models;
 using Azure;
 using Azure.Core;
 using Azure.Storage;
+using System.ComponentModel.Design;
 
 namespace CognitiveSearch.UI.Controllers
 {
@@ -88,9 +89,41 @@ namespace CognitiveSearch.UI.Controllers
         }
 
         [HttpGet("containerTree")]
-        public async Task<ContentResult> GetContainerTree()
+        public async Task<ActionResult> GetContainerTree()
         {
-            // TODO: Change this to reference a blob file, and use the code below in a function to generate that file
+            // Initialise variables
+            string treeFileName = _configuration.GetSection("TreeFileName")?.Value;
+            var container = GetStorageContainer(0);
+
+            // check if the required blob file exists
+            var treeBlobClient = container.GetBlobClient(treeFileName);
+            if (await treeBlobClient.ExistsAsync() == false)
+            {
+                return new NotFoundResult();
+            }
+
+            // rertieve and return the blob content
+            var completedTree = String.Empty;
+            using (var treeStream = new MemoryStream())
+            using (var reader = new StreamReader(treeStream))
+            {
+                await treeBlobClient.DownloadToAsync(treeStream);
+                treeStream.Position = 0;
+                completedTree = reader.ReadToEnd();
+            }
+            return new ContentResult()
+            {
+                StatusCode = 200,
+                Content = completedTree,
+                ContentType = "application/json"
+            };
+        }
+
+        [HttpGet("buildcontainerTree")]
+        public async Task<ActionResult> BuildGetContainerTree()
+        {
+            // call the recursive function to build the tree
+            string treeFileName = _configuration.GetSection("TreeFileName")?.Value;
             var container = GetStorageContainer(0);
             int id = 1;
             var containerTree = ListBlobsHierarchicalListing(container, ref id, null, null);
@@ -104,12 +137,19 @@ namespace CognitiveSearch.UI.Controllers
             JArray completedTree = new JArray();
             completedTree.Add(root);
 
-            return new ContentResult()
+            // write to blob storage
+            using (var treeStream = new MemoryStream())
+            using (var writer = new StreamWriter(treeStream))
             {
-                StatusCode = 200,
-                Content = completedTree.ToString(),
-                ContentType = "application/json"
-            };
+                await completedTree.WriteToAsync(new JsonTextWriter(writer));
+                writer.Flush();
+                treeStream.Flush();
+                treeStream.Position = 0;
+                await container.DeleteBlobIfExistsAsync(treeFileName);
+                await container.UploadBlobAsync(treeFileName, treeStream);
+            }
+
+            return new OkResult();
         }
 
         private static JArray ListBlobsHierarchicalListing(BlobContainerClient container, ref int id, string? prefix, int? segmentSize)
@@ -127,7 +167,7 @@ namespace CognitiveSearch.UI.Controllers
                     var resultSegment = container.GetBlobsByHierarchy(prefix: prefix, delimiter: "/")
                         .AsPages(continuationToken, segmentSize);
 
-                    foreach (Azure.Page<BlobHierarchyItem> blobPage in resultSegment)
+                    foreach (Page<BlobHierarchyItem> blobPage in resultSegment)
                     {
                         // A hierarchical listing may return both virtual directories and blobs.
                         foreach (BlobHierarchyItem blobhierarchyItem in blobPage.Values)
